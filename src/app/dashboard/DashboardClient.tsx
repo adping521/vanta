@@ -31,9 +31,9 @@ export default function DashboardClient({
   const supabase = createClient()
 
   async function handleSignOut() {
+    const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    window.location.href = '/login'
   }
 
   function formatDate(dateStr: string | null) {
