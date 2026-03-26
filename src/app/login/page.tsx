@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import styles from './login.module.css'
 
@@ -10,7 +9,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError]       = useState<string | null>(null)
   const [loading, setLoading]   = useState(false)
-  const router = useRouter()
   const supabase = createClient()
 
   async function handleLogin() {
@@ -25,8 +23,8 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    // Force hard navigation instead of client-side redirect
+    window.location.href = '/dashboard'
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -35,11 +33,9 @@ export default function LoginPage() {
 
   return (
     <div className={styles.page}>
-      {/* Background grid */}
       <div className={styles.grid} aria-hidden />
 
       <div className={styles.container}>
-        {/* Logo */}
         <div className={styles.logo}>
           <span className={styles.logoMark}>V</span>
           <span className={styles.logoText}>VANTA</span>
