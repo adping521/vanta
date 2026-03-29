@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 const r2 = new S3Client({
@@ -11,28 +11,63 @@ const r2 = new S3Client({
   },
 })
 
+// Start a multipart upload and get signed URLs for each part
 export async function POST(request: NextRequest) {
   try {
-    const { filename, contentType } = await request.json()
+    const { filename, partCount } = await request.json()
 
-    if (!filename || !contentType) {
-      return NextResponse.json({ error: 'Missing filename or contentType' }, { status: 400 })
+    if (!filename) {
+      return NextResponse.json({ error: 'Missing filename' }, { status: 400 })
     }
 
     const key = `splats/${Date.now()}-${filename}`
 
-    const command = new PutObjectCommand({
+    // Create multipart upload
+    const create = await r2.send(new CreateMultipartUploadCommand({
       Bucket: 'vanta-splats',
       Key: key,
-      ContentType: contentType,
-    })
+      ContentType: 'application/octet-stream',
+    }))
 
-    const signedUrl = await getSignedUrl(r2, command, { expiresIn: 3600 })
+    const uploadId = create.UploadId!
+
+    // Generate signed URLs for each part
+    const partUrls = await Promise.all(
+      Array.from({ length: partCount }, (_, i) =>
+        getSignedUrl(r2, new UploadPartCommand({
+          Bucket: 'vanta-splats',
+          Key: key,
+          UploadId: uploadId,
+          PartNumber: i + 1,
+        }), { expiresIn: 3600 })
+      )
+    )
+
     const publicUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${key}`
+    return NextResponse.json({ uploadId, key, partUrls, publicUrl })
 
-    return NextResponse.json({ signedUrl, publicUrl, key })
   } catch (error) {
-    console.error('Upload error:', error)
-    return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 })
+    console.error('Upload init error:', error)
+    return NextResponse.json({ error: 'Failed to start upload' }, { status: 500 })
+  }
+}
+
+// Complete the multipart upload
+export async function PUT(request: NextRequest) {
+  try {
+    const { key, uploadId, parts } = await request.json()
+
+    await r2.send(new CompleteMultipartUploadCommand({
+      Bucket: 'vanta-splats',
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: { Parts: parts },
+    }))
+
+    return NextResponse.json({ success: true })
+
+  } catch (error) {
+    console.error('Upload complete error:', error)
+    return NextResponse.json({ error: 'Failed to complete upload' }, { status: 500 })
   }
 }
