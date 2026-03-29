@@ -69,7 +69,7 @@ export default function DashboardClient({
         <div className={styles.sidebarFooter}>
           <div className={styles.userInfo}>
             <div className={styles.userAvatar}>
-              {user.email?.[0].toUpperCase() ?? 'U'}
+              {user.email?.[0]?.toUpperCase() ?? 'U'}
             </div>
             <span className={styles.userEmail}>{user.email}</span>
           </div>
