@@ -78,3 +78,13 @@ export default function LoginPage() {
               disabled={loading}
             >
               {loading ? <span className={styles.spinner} /> : 'Sign in'}
+            </button>
+          </div>
+        </div>
+        <p className={styles.footer}>
+          Spatial viewing for architecture &amp; real estate
+        </p>
+      </div>
+    </div>
+  )
+}
