@@ -43,10 +43,9 @@ export default function ViewerPage({ params }: { params: { id: string } }) {
     setError(null)
 
     try {
-      const CHUNK_SIZE = 100 * 1024 * 1024 // 100MB per part
+      const CHUNK_SIZE = 100 * 1024 * 1024
       const partCount = Math.ceil(file.size / CHUNK_SIZE)
 
-      // Step 1 — initialise multipart upload and get signed URLs
       const initRes = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,7 +55,6 @@ export default function ViewerPage({ params }: { params: { id: string } }) {
       if (!initRes.ok) throw new Error('Failed to start upload')
       const { uploadId, key, partUrls, publicUrl } = await initRes.json()
 
-      // Step 2 — upload each part directly to R2
       const parts: { PartNumber: number; ETag: string }[] = []
 
       for (let i = 0; i < partCount; i++) {
@@ -73,11 +71,9 @@ export default function ViewerPage({ params }: { params: { id: string } }) {
 
         const etag = res.headers.get('ETag') || ''
         parts.push({ PartNumber: i + 1, ETag: etag })
-
         setUploadProgress(Math.round(((i + 1) / partCount) * 90))
       }
 
-      // Step 3 — complete the upload
       const completeRes = await fetch('/api/upload', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -86,7 +82,6 @@ export default function ViewerPage({ params }: { params: { id: string } }) {
 
       if (!completeRes.ok) throw new Error('Failed to complete upload')
 
-      // Step 4 — save URL to Supabase
       const supabase = createClient()
       await supabase
         .from('projects')
@@ -94,54 +89,6 @@ export default function ViewerPage({ params }: { params: { id: string } }) {
         .eq('id', params.id)
 
       setUploadProgress(100)
-      setProject(prev => prev ? { ...prev, ply_url: publicUrl } : prev)
-      setUploading(false)
-      setUploadProgress(0)
-
-    } catch (err) {
-      setError('Upload failed. Please try again.')
-      setUploading(false)
-      setUploadProgress(0)
-    }
-  }
-
-    setUploading(true)
-    setUploadProgress(0)
-    setError(null)
-
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: 'application/octet-stream',
-        }),
-      })
-
-      const { signedUrl, publicUrl } = await res.json()
-
-      const xhr = new XMLHttpRequest()
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          setUploadProgress(Math.round((e.loaded / e.total) * 100))
-        }
-      })
-
-      await new Promise<void>((resolve, reject) => {
-        xhr.open('PUT', signedUrl)
-        xhr.setRequestHeader('Content-Type', 'application/octet-stream')
-        xhr.onload = () => xhr.status === 200 ? resolve() : reject(new Error('Upload failed'))
-        xhr.onerror = () => reject(new Error('Upload failed'))
-        xhr.send(file)
-      })
-
-      const supabase = createClient()
-      await supabase
-        .from('projects')
-        .update({ ply_url: publicUrl })
-        .eq('id', params.id)
-
       setProject(prev => prev ? { ...prev, ply_url: publicUrl } : prev)
       setUploading(false)
       setUploadProgress(0)
@@ -221,7 +168,6 @@ export default function ViewerPage({ params }: { params: { id: string } }) {
                 if (file) handleFileUpload(file)
               }}
             />
-
             {uploading ? (
               <div className={styles.uploadProgress}>
                 <div className={styles.progressRing}>
