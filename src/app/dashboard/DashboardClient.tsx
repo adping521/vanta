@@ -31,9 +31,9 @@ export default function DashboardClient({
   const supabase = createClient()
 
   async function handleSignOut() {
-    const supabase = createClient()
     await supabase.auth.signOut()
-    window.location.href = '/login'
+    router.push('/login')
+    router.refresh()
   }
 
   function formatDate(dateStr: string | null) {
@@ -69,7 +69,7 @@ export default function DashboardClient({
         <div className={styles.sidebarFooter}>
           <div className={styles.userInfo}>
             <div className={styles.userAvatar}>
-              {user.email?.[0]?.toUpperCase() ?? 'U'}
+              {user.email?.[0].toUpperCase() ?? 'U'}
             </div>
             <span className={styles.userEmail}>{user.email}</span>
           </div>
