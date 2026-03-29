@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import styles from './login.module.css'
 
@@ -25,8 +24,8 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    await new Promise(resolve => setTimeout(resolve, 500))
+    window.location.replace('/dashboard')
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
