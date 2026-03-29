@@ -43,6 +43,73 @@ export default function ViewerPage({ params }: { params: { id: string } }) {
     setError(null)
 
     try {
+      const CHUNK_SIZE = 100 * 1024 * 1024 // 100MB per part
+      const partCount = Math.ceil(file.size / CHUNK_SIZE)
+
+      // Step 1 — initialise multipart upload and get signed URLs
+      const initRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, partCount }),
+      })
+
+      if (!initRes.ok) throw new Error('Failed to start upload')
+      const { uploadId, key, partUrls, publicUrl } = await initRes.json()
+
+      // Step 2 — upload each part directly to R2
+      const parts: { PartNumber: number; ETag: string }[] = []
+
+      for (let i = 0; i < partCount; i++) {
+        const start = i * CHUNK_SIZE
+        const end = Math.min(start + CHUNK_SIZE, file.size)
+        const chunk = file.slice(start, end)
+
+        const res = await fetch(partUrls[i], {
+          method: 'PUT',
+          body: chunk,
+        })
+
+        if (!res.ok) throw new Error(`Part ${i + 1} failed`)
+
+        const etag = res.headers.get('ETag') || ''
+        parts.push({ PartNumber: i + 1, ETag: etag })
+
+        setUploadProgress(Math.round(((i + 1) / partCount) * 90))
+      }
+
+      // Step 3 — complete the upload
+      const completeRes = await fetch('/api/upload', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, uploadId, parts }),
+      })
+
+      if (!completeRes.ok) throw new Error('Failed to complete upload')
+
+      // Step 4 — save URL to Supabase
+      const supabase = createClient()
+      await supabase
+        .from('projects')
+        .update({ ply_url: publicUrl })
+        .eq('id', params.id)
+
+      setUploadProgress(100)
+      setProject(prev => prev ? { ...prev, ply_url: publicUrl } : prev)
+      setUploading(false)
+      setUploadProgress(0)
+
+    } catch (err) {
+      setError('Upload failed. Please try again.')
+      setUploading(false)
+      setUploadProgress(0)
+    }
+  }
+
+    setUploading(true)
+    setUploadProgress(0)
+    setError(null)
+
+    try {
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
