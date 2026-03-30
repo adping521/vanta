@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } from '@aws-sdk/client-s3'
+import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 const r2 = new S3Client({
@@ -11,7 +11,6 @@ const r2 = new S3Client({
   },
 })
 
-// Start a multipart upload and get signed URLs for each part
 export async function POST(request: NextRequest) {
   try {
     const { filename, partCount } = await request.json()
@@ -22,7 +21,6 @@ export async function POST(request: NextRequest) {
 
     const key = `splats/${Date.now()}-${filename}`
 
-    // Create multipart upload
     const create = await r2.send(new CreateMultipartUploadCommand({
       Bucket: 'vanta-splats',
       Key: key,
@@ -31,7 +29,6 @@ export async function POST(request: NextRequest) {
 
     const uploadId = create.UploadId!
 
-    // Generate signed URLs for each part
     const partUrls = await Promise.all(
       Array.from({ length: partCount }, (_, i) =>
         getSignedUrl(r2, new UploadPartCommand({
@@ -39,7 +36,10 @@ export async function POST(request: NextRequest) {
           Key: key,
           UploadId: uploadId,
           PartNumber: i + 1,
-        }), { expiresIn: 3600 })
+        }), {
+          expiresIn: 3600,
+          unhoistableHeaders: new Set(['x-amz-checksum-crc32']),
+        })
       )
     )
 
@@ -52,7 +52,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Complete the multipart upload
 export async function PUT(request: NextRequest) {
   try {
     const { key, uploadId, parts } = await request.json()
