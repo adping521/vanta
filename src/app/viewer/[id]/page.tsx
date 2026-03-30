@@ -131,7 +131,7 @@ export default function ViewerPage({ params }: { params: { id: string } }) {
   }
 
   const viewerUrl = project.ply_url
-    ? `https://superspl.at/editor#load=${encodeURIComponent(project.ply_url)}`
+    ? `https://superspl.at/editor?load=${encodeURIComponent(project.ply_url)}`
     : null
 
   return (
