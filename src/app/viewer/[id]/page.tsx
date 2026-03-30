@@ -62,14 +62,26 @@ export default function ViewerPage({ params }: { params: { id: string } }) {
         const end = Math.min(start + CHUNK_SIZE, file.size)
         const chunk = file.slice(start, end)
 
-        const res = await fetch(partUrls[i], {
-          method: 'PUT',
-          body: chunk,
-        })
+        let etag = ''
+        let success = false
+        let attempts = 0
 
-        if (!res.ok) throw new Error(`Part ${i + 1} failed`)
+        while (!success && attempts < 3) {
+          try {
+            attempts++
+            const res = await fetch(partUrls[i], {
+              method: 'PUT',
+              body: chunk,
+            })
+            if (!res.ok) throw new Error(`Part ${i + 1} failed`)
+            etag = res.headers.get('ETag') || ''
+            success = true
+          } catch (e) {
+            if (attempts >= 3) throw new Error(`Part ${i + 1} failed after 3 attempts`)
+            await new Promise(r => setTimeout(r, 2000))
+          }
+        }
 
-        const etag = res.headers.get('ETag') || ''
         parts.push({ PartNumber: i + 1, ETag: etag })
         setUploadProgress(Math.round(((i + 1) / partCount) * 90))
       }
