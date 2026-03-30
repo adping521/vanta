@@ -43,7 +43,7 @@ export default function ViewerPage({ params }: { params: { id: string } }) {
     setError(null)
 
     try {
-      const CHUNK_SIZE = 100 * 1024 * 1024
+      const CHUNK_SIZE = 50 * 1024 * 1024
       const partCount = Math.ceil(file.size / CHUNK_SIZE)
 
       const initRes = await fetch('/api/upload', {
